@@ -7,6 +7,6 @@ services:
     ports:
       - "3003:3003"
     volumes:
-      - ./public/uploads:/app/public/uploads
-      - ./wallpaper-metadata.json:/app/wallpaper-metadata.json
+      - ./public/uploads:/public/uploads
+      - ./wallpaper-metadata.json:/wallpaper-metadata.json
     restart: unless-stopped 
