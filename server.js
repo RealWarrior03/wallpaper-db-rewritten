@@ -17,8 +17,14 @@ app.options('*', (req, res) => {
     res.sendStatus(200);
 });
 
-// Statische Dateien servieren
+// Statische Dateien (HTML, CSS, JS) servieren
+app.use(express.static(path.join(__dirname, 'public')));
 app.use('/public', express.static('public'));
+
+// Stelle sicher, dass die Root-Route die index.html zurückgibt
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // Pfad zur Metadaten-Datei
 const metadataPath = path.join(__dirname, 'wallpaper-metadata.json');
