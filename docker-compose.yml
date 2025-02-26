@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  wallpaper-db:
+    build: .
+    container_name: wallpaper-db
+    ports:
+      - "3003:3003"
+    volumes:
+      - ./public/uploads:/app/public/uploads
+      - ./wallpaper-metadata.json:/app/wallpaper-metadata.json
+    restart: unless-stopped 
