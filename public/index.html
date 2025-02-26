@@ -301,6 +301,25 @@
         .download-btn:hover {
             background-color: #45a049;
         }
+
+        .select-mode .wallpaper-card {
+            border: 2px solid transparent;
+        }
+
+        .select-mode .wallpaper-card.selected {
+            border-color: #4CAF50;
+        }
+
+        .select-checkbox {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            display: none;
+        }
+
+        .select-mode .select-checkbox {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -316,6 +335,8 @@
                 >
                 <button class="clear-search" onclick="clearSearch()">x</button>
             </div>
+            <button onclick="toggleSelectMode()">Select</button>
+            <button onclick="deleteSelectedWallpapers()" style="display: none;" id="deleteSelectedBtn">Delete Selected</button>
             <button onclick="openModal()">New Wallpaper</button>
         </div>
     </div>
@@ -374,6 +395,7 @@
 
         // Globales Array für alle Wallpaper-Daten
         let allWallpapers = [];
+        let selectMode = false;
 
         // Modal Funktionen
         function openModal() {
@@ -671,6 +693,53 @@
             searchInput.value = '';
             filterWallpapers();
             searchInput.focus();
+        }
+
+        function toggleSelectMode() {
+            selectMode = !selectMode;
+            document.body.classList.toggle('select-mode', selectMode);
+            document.getElementById('deleteSelectedBtn').style.display = selectMode ? 'inline-block' : 'none';
+        }
+
+        function addWallpaperToGallery(wallpaperData) {
+            const gallery = document.getElementById('wallpaperGallery');
+            const card = document.createElement('div');
+            card.className = 'wallpaper-card';
+            
+            // Füge Metadaten als data-Attribute hinzu
+            card.dataset.title = wallpaperData.title.toLowerCase();
+            card.dataset.description = wallpaperData.description.toLowerCase();
+            card.dataset.tags = wallpaperData.tags.toLowerCase();
+            
+            card.innerHTML = `
+                <input type="checkbox" class="select-checkbox">
+                <img src="${wallpaperData.imageUrl}" alt="${wallpaperData.title}">
+            `;
+            card.addEventListener('click', (e) => {
+                if (selectMode) {
+                    card.classList.toggle('selected');
+                    card.querySelector('.select-checkbox').checked = card.classList.contains('selected');
+                } else {
+                    showDetailModal(wallpaperData);
+                }
+            });
+            
+            gallery.insertBefore(card, gallery.firstChild);
+        }
+
+        function deleteSelectedWallpapers() {
+            const selectedCards = document.querySelectorAll('.wallpaper-card.selected');
+            const promises = Array.from(selectedCards).map(card => {
+                const img = card.querySelector('img');
+                return deleteWallpaper(img.src);
+            });
+
+            Promise.all(promises).then(() => {
+                selectedCards.forEach(card => card.remove());
+                toggleSelectMode();
+            }).catch(error => {
+                console.error('Error deleting selected wallpapers:', error);
+            });
         }
     </script>
 </body>
