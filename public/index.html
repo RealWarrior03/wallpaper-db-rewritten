@@ -266,13 +266,19 @@
         .clear-search {
             position: absolute;
             right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
             background: none;
             border: none;
             color: #666;
             cursor: pointer;
-            font-size: 18px;
+            font-size: 16px;
             padding: 0;
+            width: 24px;
+            height: 24px;
             display: none;
+            justify-content: center;
+            align-items: center;
         }
 
         .clear-search:hover {
@@ -281,6 +287,19 @@
 
         .wallpaper-card.hidden {
             display: none;
+        }
+
+        .download-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .download-btn:hover {
+            background-color: #45a049;
         }
     </style>
 </head>
@@ -295,7 +314,7 @@
                     placeholder="Search titles, descriptions, tags..."
                     onkeyup="filterWallpapers()"
                 >
-                <button class="clear-search" onclick="clearSearch()">×</button>
+                <button class="clear-search" onclick="clearSearch()">x</button>
             </div>
             <button onclick="openModal()">New Wallpaper</button>
         </div>
@@ -306,8 +325,8 @@
             <span class="close" onclick="closeModal()">&times;</span>
             <h2>Upload New Wallpaper</h2>
             <form id="uploadForm" class="upload-form">
-                <input type="file" id="wallpaperFile" accept="image/*" required>
-                <input type="text" placeholder="Title" required>
+                <input type="file" id="wallpaperFile" accept="image/*" required multiple>
+                <input type="text" placeholder="Title Prefix (optional)">
                 <input type="text" placeholder="Description">
                 <input type="text" placeholder="Tags (comma separated)">
                 <button type="submit">Upload</button>
@@ -329,7 +348,7 @@
                     <p id="detailTags"></p>
                     <p class="upload-date" id="detailDate"></p>
                     <div class="button-group">
-                        <button id="detailDownload">Download</button>
+                        <button id="detailDownload" class="download-btn">Download</button>
                         <button id="detailEdit" class="edit-btn">Edit</button>
                         <button id="detailDelete" class="delete-btn">Delete</button>
                     </div>
@@ -378,34 +397,46 @@
             const fileInput = document.getElementById('wallpaperFile');
             const [titleInput, descInput, tagsInput] = document.querySelectorAll('.upload-form input:not([type="file"])');
             
-            if (!fileInput.files[0]) {
-                alert('Please select a file');
+            if (!fileInput.files.length) {
+                alert('Please select at least one file');
                 return;
             }
 
-            const formData = new FormData();
-            formData.append('wallpaper', fileInput.files[0]);
-            formData.append('title', titleInput.value);
-            formData.append('description', descInput.value);
-            formData.append('tags', tagsInput.value);
+            const files = Array.from(fileInput.files);
+            const totalFiles = files.length;
+            let successCount = 0;
 
-            try {
-                const response = await fetch(`${SERVER_URL}/upload`, {
-                    method: 'POST',
-                    body: formData
-                });
+            for (let i = 0; i < files.length; i++) {
+                const formData = new FormData();
+                formData.append('wallpaper', files[i]);
+                
+                // Add index to title if multiple files are uploaded
+                const baseTitle = titleInput.value || files[i].name.split('.')[0];
+                const title = totalFiles > 1 ? `${baseTitle} ${i + 1}` : baseTitle;
+                
+                formData.append('title', title);
+                formData.append('description', descInput.value);
+                formData.append('tags', tagsInput.value);
 
-                if (response.ok) {
-                    const result = await response.json();
-                    addWallpaperToGallery(result);
-                    closeModal();
-                    e.target.reset();
-                } else {
-                    throw new Error('Upload failed');
+                try {
+                    const response = await fetch(`${SERVER_URL}/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        addWallpaperToGallery(result);
+                        successCount++;
+                    }
+                } catch (error) {
+                    console.error(`Error uploading ${files[i].name}:`, error);
                 }
-            } catch (error) {
-                alert('Error during upload: ' + error.message);
             }
+
+            alert(`Successfully uploaded ${successCount} of ${totalFiles} files`);
+            closeModal();
+            e.target.reset();
         });
 
         function addWallpaperToGallery(wallpaperData) {
@@ -461,8 +492,10 @@
 
             downloadBtn.onclick = () => downloadWallpaper(wallpaperData.imageUrl);
             deleteBtn.onclick = () => {
-                deleteWallpaper(wallpaperData.imageUrl, modal).then(() => {
+                deleteWallpaper(wallpaperData.imageUrl).then(() => {
                     closeDetailModal();
+                }).catch(error => {
+                    console.error('Fehler beim Löschen:', error);
                 });
             };
             editBtn.onclick = () => toggleEditForm(true);
@@ -559,25 +592,33 @@
             }
         }
 
-        async function deleteWallpaper(imageUrl, buttonElement) {
+        function deleteWallpaper(imageUrl) {
             if (!confirm('Are you sure you want to delete this wallpaper?')) {
                 return;
             }
 
             try {
                 const filename = imageUrl.split('/').pop();
-                const response = await fetch(`${SERVER_URL}/delete/${filename}`, {
+                return fetch(`${SERVER_URL}/delete/${filename}`, {
                     method: 'DELETE'
+                }).then(response => {
+                    if (response.ok) {
+                        // Find and remove the corresponding card from the gallery
+                        const cards = document.querySelectorAll('.wallpaper-card');
+                        cards.forEach(card => {
+                            const cardImg = card.querySelector('img');
+                            if (cardImg.src.includes(filename)) {
+                                card.remove();
+                            }
+                        });
+                        return true;
+                    } else {
+                        throw new Error('Delete failed');
+                    }
                 });
-
-                if (response.ok) {
-                    const card = buttonElement.closest('.wallpaper-card');
-                    card.remove();
-                } else {
-                    throw new Error('Delete failed');
-                }
             } catch (error) {
-                alert('Error during deletion: ' + error.message);
+                alert('Error while deleting: ' + error.message);
+                return Promise.reject(error);
             }
         }
 
@@ -608,7 +649,7 @@
             const clearButton = document.querySelector('.clear-search');
             
             // Zeige/Verstecke Clear-Button
-            clearButton.style.display = searchTerm ? 'block' : 'none';
+            clearButton.style.display = searchTerm ? 'flex' : 'none';
             
             const cards = document.querySelectorAll('.wallpaper-card');
             

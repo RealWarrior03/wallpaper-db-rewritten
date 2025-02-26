@@ -125,8 +125,15 @@ const upload = multer({
     }
 });
 
+// Rate Limiting für Upload-Anfragen
+const rateLimit = require('express-rate-limit');
+const uploadLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 Minuten
+    max: 100 // maximale Anzahl von Anfragen pro IP
+});
+
 // Upload-Endpunkt
-app.post('/upload', upload.single('wallpaper'), async (req, res) => {
+app.post('/upload', uploadLimiter, upload.single('wallpaper'), async (req, res) => {
     try {
         if (!req.file) {
             throw new Error('Keine Datei hochgeladen');
